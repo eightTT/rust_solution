@@ -1,4 +1,5 @@
 rust exercices 
+
 /written in rust
 /execute in command-line
 /based in Command-line Rust book by KY Clark
