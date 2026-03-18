@@ -46,30 +46,28 @@ pub fn get_args() -> MyResult<Config> {
 type MyResult<T> = Result<T, Box<dyn Error>>;
 
 pub fn run(config: Config) -> MyResult<()> {   // function need to accept config argument
-    // println!("Hello, world!");
-    // dbg!(config);   //debug print the config struct
+    let mut line_num = 0;
     for filename in config.files {
         match open(&filename) {
-            Err(err) => eprintln!("Failed to open {}: {}", filename, err),
-            Ok(file) => //read_content(file)?,    // If the file is successfully opened, read its content and print it to the console
-                {
-                    let mut last_num = 0;           // Keep track of the last line number for non-blank lines
-                    for (line_num, line) in file.lines().enumerate() {   // Iterate over each line in the file
-                        let line = line?;                                // Handle any errors that occur while reading the line
-                        if config.number_lines {
-                            println!("{:>6}\t{}", line_num + 1, line);  // If the number_lines flag is set, print the line number and the line content
-                        } else if config.number_nonblank_lines {
-                            if !line.is_empty() {                       // If the number_nonblank_lines flag is set and the line is not empty, print the line number and the line content
-                                last_num += 1;
-                                println!("{:>6}\t{}", last_num, line); 
-                            } else {
-                                println!();                             // If the line is empty, just print a blank line without a line number
-                            }
+            Err(err) => eprintln!("{}: {}", filename, err),
+            Ok(file) => {
+                for line_result in file.lines() {
+                    let line = line_result?;
+                    if config.number_lines {
+                        line_num += 1;
+                        println!("{:>6}\t{}", line_num, line);
+                    } else if config.number_nonblank_lines {
+                        if line.is_empty() {
+                            println!();
                         } else {
-                            println!("{}", line);               // If neither flag is set, just print the line content without any line numbers
+                            line_num += 1;
+                            println!("{:>6}\t{}", line_num, line);
                         }
+                    } else {
+                        println!("{}", line);
                     }
                 }
+            }
         }
     }
     Ok(())
@@ -83,14 +81,4 @@ fn open(filename: &str) -> MyResult<Box<dyn BufRead>> {
         "-" => Ok(Box::new(BufReader::new(io::stdin()))),
         _ => Ok(Box::new(BufReader::new(File::open(filename)?))),
     }
-}
-
-
-fn read_content(mut reader: Box<dyn BufRead>) -> MyResult<()> {
-    let mut line = String::new();
-    while reader.read_line(&mut line)? > 0 {
-        print!("{}", line);
-        line.clear();
-    }
-    Ok(())
 }
