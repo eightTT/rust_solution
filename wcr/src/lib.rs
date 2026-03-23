@@ -25,7 +25,7 @@ pub fn get_args() -> MyResult<Config> {
     let matches = App::new("wcr")
         .version("0.1.0")
         .author("Hugo")
-        .about("Rust wc")
+        .about("Rust words count from input files from cmdline")
         .arg(Arg::with_name("files")
             .value_name("FILE")
             .help("Input files")
