@@ -95,6 +95,10 @@ fn open(filename: &str) -> MyResult<Box<dyn BufRead>> {
 
 pub fn run(config: Config) -> MyResult<()> {
     // println!("{:#?}", config);
+    let mut total_lines = 0;
+    let mut total_words = 0;
+    let mut total_bytes = 0;
+    let mut total_chars = 0;
 
     for filename in &config.files{
         match open(filename) {
@@ -115,11 +119,23 @@ pub fn run(config: Config) -> MyResult<()> {
                                 format!(" {}", filename)
                             }
                         );
+                        total_lines += info.num_lines;
+                        total_words += info.num_words;
+                        total_bytes += info.num_bytes;
+                        total_chars += info.num_chars;
                     }
                 }
         }
     }
-
+    if config.files.len() > 1 {
+        println!(
+            "{}{}{}{} total",
+            format_field(total_lines, config.lines),
+            format_field(total_words, config.words),
+            format_field(total_bytes, config.bytes),
+            format_field(total_chars, config.chars),
+        );
+    }
     Ok(())
 }
 
