@@ -20,8 +20,18 @@ pub struct Config {
     chars: bool,            // indicate whether or not to print the 'character' count.
 }
 
+#[derive(Debug, PartialEq)]
+pub struct FileInfo {
+    num_lines: usize,
+    num_words: usize,
+    num_bytes: usize,
+    num_chars: usize,
+}
+
 
 pub fn get_args() -> MyResult<Config> {
+    //function to parse command-line arguments and return a Config struct 
+    // instance populated with the values from the command-line arguments
     let matches = App::new("wcr")
         .version("0.1.0")
         .author("Hugo")
@@ -52,12 +62,104 @@ pub fn get_args() -> MyResult<Config> {
             .help("Number of characters")
             .takes_value(false),)
         .get_matches();
+
+    let mut line = matches.is_present("line");
+    let mut word = matches.is_present("word");
+    let mut byte = matches.is_present("byte");
+    let mut chars = matches.is_present("chars");
+
+    if [line, word, byte, chars].iter().all(|v| v == &false) {
+        // if all flags are false, set them all to true
+        line = true;
+        word = true;
+        byte = true;
+        // chars = true;
+    }
+
     Ok(Config {         
         // Create a Config struct instance and populate it with the values from the command-line arguments
         files: matches.values_of_lossy("files").unwrap(),     // at least 1 value required, so unwrap is safe
-        line: matches.is_present("line"),      //either present or not
-        word: matches.is_present("word"),
-        byte: matches.is_present("byte"),
-        chars: matches.is_present("chars"),
+        line,
+        word,
+        byte,
+        chars,
     })
+}
+
+fn open(filename: &str) -> MyResult<Box<dyn BufRead>> {
+    match filename{
+        "-" => Ok(Box::new(BufReader::new(io::stdin()))),
+        _ => Ok(Box::new(BufReader::new(File::open(filename)?))),
+    }
+}
+
+pub fn run(config: Config) -> MyResult<()> {
+    // println!("{:#?}", config);
+
+    for filename in &config.files{
+        match open(filename) {
+            Err(err) => eprintln!("{}: {}", filename, err),
+            Ok(file) => 
+                {
+                    println!("Open {}", filename);
+                    if let Ok(info) = count(file) {
+                        println!("FileInfo: {:#?}", info);
+                    }
+                }
+        }
+    }
+
+    Ok(())
+}
+
+
+
+pub fn count(mut file: impl BufRead) -> MyResult<FileInfo> {
+// The count function will accept a mutable file value, and it might return a
+// FileInfo struct.
+    let mut num_lines = 0;
+    let mut num_words = 0;
+    let mut num_bytes = 0;
+    let mut num_chars = 0;
+    let mut line = String::new();       // a mutable buffer to hold new line text
+
+    loop{
+        let line_bytes = file.read_line(&mut line)?;    // read line from file handle
+        if line_bytes == 0 {
+            break;          //break when there is end of line
+        }
+        num_bytes += line_bytes;
+        num_lines += 1;
+        num_words += line.split_whitespace().count();
+        num_chars += line.chars().count();  
+        line.clear();       // clear line buffer
+    }
+
+    Ok(FileInfo {
+            num_lines,
+            num_words,
+            num_bytes,
+            num_chars,
+        }
+    )
+}
+
+
+#[cfg(test)]
+mod tests {
+use super::{count, FileInfo};
+use std::io::Cursor;
+#[test]
+fn test_count() {
+let text = "I don't want the world. I just want your half.\r\n";
+let info = count(Cursor::new(text));
+assert!(info.is_ok());
+let expected = FileInfo {
+num_lines: 1,
+num_words: 10,
+num_chars: 48,
+num_bytes: 48,
+};
+assert_eq!(info.unwrap(), expected);
+}
 }
