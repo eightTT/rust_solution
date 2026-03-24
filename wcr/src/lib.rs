@@ -14,9 +14,9 @@ type MyResult<T> = Result<T, Box<dyn Error>>;
 // Define a struct to hold the configuration options
 pub struct Config {
     files: Vec<String>,     // A vector to hold the list of files to be processed
-    line: bool,             // indicate whether or not to print the 'line' count.
-    word: bool,             // indicate whether or not to print the 'word' count.
-    byte: bool,             // indicate whether or not to print the 'byte' count.
+    lines: bool,             // indicate whether or not to print the 'line' count.
+    words: bool,             // indicate whether or not to print the 'word' count.
+    bytes: bool,             // indicate whether or not to print the 'byte' count.
     chars: bool,            // indicate whether or not to print the 'character' count.
 }
 
@@ -41,17 +41,17 @@ pub fn get_args() -> MyResult<Config> {
             .help("Input files")
             .multiple(true)         // Allow multiple files to be specified
             .default_value("-"),)
-        .arg(Arg::with_name("line")
+        .arg(Arg::with_name("lines")
             .short("l")
             .long("lines")
             .help("Number of lines")
             .takes_value(false),)
-        .arg(Arg::with_name("word")
+        .arg(Arg::with_name("words")
             .short("w")
             .long("words")
             .help("Number of words")
             .takes_value(false),)
-        .arg(Arg::with_name("byte")
+        .arg(Arg::with_name("bytes")
             .short("c")
             .long("bytes")
             .help("Number of bytes")
@@ -63,25 +63,25 @@ pub fn get_args() -> MyResult<Config> {
             .takes_value(false),)
         .get_matches();
 
-    let mut line = matches.is_present("line");
-    let mut word = matches.is_present("word");
-    let mut byte = matches.is_present("byte");
+    let mut lines = matches.is_present("lines");
+    let mut words = matches.is_present("words");
+    let mut bytes = matches.is_present("bytes");
     let mut chars = matches.is_present("chars");
 
-    if [line, word, byte, chars].iter().all(|v| v == &false) {
+    if [lines, words, bytes, chars].iter().all(|v| v == &false) {
         // if all flags are false, set them all to true
-        line = true;
-        word = true;
-        byte = true;
+        lines = true;
+        words = true;
+        bytes = true;
         // chars = true;
     }
 
     Ok(Config {         
         // Create a Config struct instance and populate it with the values from the command-line arguments
         files: matches.values_of_lossy("files").unwrap(),     // at least 1 value required, so unwrap is safe
-        line,
-        word,
-        byte,
+        lines,
+        words,
+        bytes,
         chars,
     })
 }
@@ -101,9 +101,20 @@ pub fn run(config: Config) -> MyResult<()> {
             Err(err) => eprintln!("{}: {}", filename, err),
             Ok(file) => 
                 {
-                    println!("Open {}", filename);
+                    // println!("Open {}", filename);
                     if let Ok(info) = count(file) {
-                        println!("FileInfo: {:#?}", info);
+                        println!(
+                            "{}{}{}{}{}",
+                            format_field(info.num_lines, config.lines),
+                            format_field(info.num_words, config.words),
+                            format_field(info.num_bytes, config.bytes),
+                            format_field(info.num_chars, config.chars),
+                            if filename == "-" {
+                                "".to_string()
+                            } else {
+                                format!(" {}", filename)
+                            }
+                        );
                     }
                 }
         }
@@ -144,22 +155,35 @@ pub fn count(mut file: impl BufRead) -> MyResult<FileInfo> {
     )
 }
 
+fn format_field(value: usize, show: bool) -> String {
+    if show {
+        format!("{:>8}", value)
+        } else {
+            "".to_string()
+        }
+    }
 
 #[cfg(test)]
 mod tests {
-use super::{count, FileInfo};
-use std::io::Cursor;
-#[test]
-fn test_count() {
-let text = "I don't want the world. I just want your half.\r\n";
-let info = count(Cursor::new(text));
-assert!(info.is_ok());
-let expected = FileInfo {
-num_lines: 1,
-num_words: 10,
-num_chars: 48,
-num_bytes: 48,
-};
-assert_eq!(info.unwrap(), expected);
-}
+    use super::{count, format_field, FileInfo};
+    use std::io::Cursor;
+    #[test]
+    fn test_count() {
+        let text = "I don't want the world. I just want your half.\r\n";
+        let info = count(Cursor::new(text));
+        assert!(info.is_ok());
+        let expected = FileInfo {
+        num_lines: 1,
+        num_words: 10,
+        num_chars: 48,
+        num_bytes: 48,
+        };
+        assert_eq!(info.unwrap(), expected);
+    }
+
+    fn test_format_field() {
+        assert_eq!(format_field(1, false), "");
+        assert_eq!(format_field(3, true), "     3");
+        assert_eq!(format_field(10, true), "    10");
+    }
 }
